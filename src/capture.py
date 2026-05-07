@@ -31,9 +31,14 @@ def window_rect(hwnd: int) -> tuple[int, int, int, int]:
 def capture(hwnd: int) -> tuple[np.ndarray, tuple[int, int, int, int]]:
     """Cattura un singolo frame (crea/distrugge mss ogni volta — per uso sporadico)."""
     left, top, w, h = window_rect(hwnd)
+    if w <= 0 or h <= 0:
+        raise RuntimeError(f"Finestra con dimensioni invalide: {w}x{h}. BlueStacks minimizzato?")
     with mss.mss() as sct:
         shot = sct.grab({"top": top, "left": left, "width": w, "height": h})
-        img = cv2.cvtColor(np.array(shot), cv2.COLOR_BGRA2BGR)
+        arr = np.array(shot)
+        if arr.size == 0:
+            raise RuntimeError(f"Screenshot vuoto per regione ({left},{top},{w},{h}).")
+        img = cv2.cvtColor(arr, cv2.COLOR_BGRA2BGR)
     return img, (left, top, w, h)
 
 
@@ -42,8 +47,13 @@ def capture_with_sct(
 ) -> tuple[np.ndarray, tuple[int, int, int, int]]:
     """Cattura usando istanza mss già aperta (per loop ad alta frequenza)."""
     left, top, w, h = window_rect(hwnd)
+    if w <= 0 or h <= 0:
+        raise RuntimeError(f"Finestra con dimensioni invalide: {w}x{h}.")
     shot = sct.grab({"top": top, "left": left, "width": w, "height": h})
-    img = cv2.cvtColor(np.array(shot), cv2.COLOR_BGRA2BGR)
+    arr = np.array(shot)
+    if arr.size == 0:
+        raise RuntimeError(f"Screenshot vuoto per regione ({left},{top},{w},{h}).")
+    img = cv2.cvtColor(arr, cv2.COLOR_BGRA2BGR)
     return img, (left, top, w, h)
 
 

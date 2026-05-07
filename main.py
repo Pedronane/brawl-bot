@@ -57,9 +57,21 @@ def main() -> None:
         log.error("BlueStacks non trovato. Aprilo e avvia Brawl Stars.")
         sys.exit(1)
 
-    log.info("BlueStacks trovato. Avvio in 3 secondi.")
+    log.info("BlueStacks trovato. Attendo finestra pronta...")
     log.info("Per fermare: Ctrl+C oppure crea il file 'kill.flag'.")
-    time.sleep(3)
+
+    _watcher_init = WindowWatcher(WINDOW_TITLE)
+    for _attempt in range(30):
+        ok, reason = _watcher_init.healthy()
+        if ok:
+            break
+        log.warning(f"Finestra non pronta ({reason}), riprovo ({_attempt + 1}/30)...")
+        time.sleep(1)
+    else:
+        log.error("BlueStacks non raggiungibile dopo 30s. Verificare che sia visibile e non minimizzato.")
+        sys.exit(1)
+
+    time.sleep(1)
 
     # Warm-up capture per impostare rect iniziale
     frame_init, rect_init = capture(hwnd)

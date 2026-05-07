@@ -2,6 +2,7 @@ import time
 
 import pyautogui
 import pydirectinput
+import win32con
 import win32gui
 
 from config import CONTROL_MODE, JOYSTICK_DRAG_RADIUS, JOYSTICK_X, JOYSTICK_Y
@@ -28,10 +29,24 @@ def set_window_rect(rect: tuple[int, int, int, int], hwnd: int | None = None) ->
 
 
 def is_window_focused() -> bool:
-    """Ritorna True se BlueStacks ha il focus. Se hwnd non noto, assume True."""
     if _hwnd is None:
         return True
     return win32gui.GetForegroundWindow() == _hwnd
+
+
+def _ensure_focus() -> bool:
+    """Porta BlueStacks in foreground se non lo è già. Ritorna True se ok."""
+    if _hwnd is None:
+        return True
+    if win32gui.GetForegroundWindow() == _hwnd:
+        return True
+    try:
+        win32gui.ShowWindow(_hwnd, win32con.SW_RESTORE)
+        win32gui.SetForegroundWindow(_hwnd)
+        time.sleep(0.05)
+        return win32gui.GetForegroundWindow() == _hwnd
+    except Exception:
+        return False
 
 
 def reset_all_inputs() -> None:
@@ -107,7 +122,7 @@ def _mouse_stop() -> None:
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 def move(dx: float, dy: float) -> None:
-    if not is_window_focused():
+    if not _ensure_focus():
         stop()
         return
     maybe_human_pause()
