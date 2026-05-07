@@ -14,6 +14,7 @@ from config import (
 )
 from game_state import FrameState
 from randomizer import noisy_direction
+from tactics import TacticSelector, compute_threat
 from utils.geometry import rotate
 
 _WIGGLE_DIRS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
@@ -21,17 +22,18 @@ _WIGGLE_DIRS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
 class StateMachine:
     def __init__(self):
-        self.prev_state    = ""
+        self.prev_state     = ""
         self.wiggle_counter = 0
-        self.wiggle_step   = 0
-        self.prev_roi      = None
-        self.stuck_count   = 0
-        self.deflect_sign  = 1
-        self.commit_left   = 0
-        self.avoid_phase   = 0
-        self._backup_dir   = None
-        self._deviated     = None
-        self.total_stuck   = 0
+        self.wiggle_step    = 0
+        self.prev_roi       = None
+        self.stuck_count    = 0
+        self.deflect_sign   = 1
+        self.commit_left    = 0
+        self.avoid_phase    = 0
+        self._backup_dir    = None
+        self._deviated      = None
+        self.total_stuck    = 0
+        self._tactic_sel    = TacticSelector()
 
     def _center_roi(self, frame: np.ndarray) -> np.ndarray:
         h, w = frame.shape[:2]
@@ -58,8 +60,12 @@ class StateMachine:
         self.prev_roi = roi
         return self.stuck_count >= STUCK_FRAMES
 
-    def choose_direction(self, state: FrameState) -> tuple[float, float] | None:
-        """Wall avoidance + committed sequence logic. Ritorna direzione effettiva."""
+    def _resolve_direction(
+        self,
+        state: FrameState,
+        tactic_dir: tuple[float, float] | None,
+    ) -> tuple[float, float] | None:
+        """Wall avoidance trumps tactic direction when active."""
         direction = state.nearest_bush_dir
 
         if self.stuck_count >= STUCK_FRAMES and self.commit_left == 0 and direction:
@@ -76,20 +82,28 @@ class StateMachine:
                 self.avoid_phase = 1
             return self._backup_dir if self.avoid_phase == 0 else self._deviated
 
-        return direction
+        return tactic_dir
 
     def tick(self, frame: np.ndarray, state: FrameState, controller) -> str:
-        """Esegui un frame della state machine. Ritorna nome stato corrente."""
+        """Esegui un frame. Ritorna nome stato corrente."""
         self.update_stuck(frame, state)
-        effective_dir = self.choose_direction(state)
+
+        frame_h, frame_w = frame.shape[:2]
+        threat = compute_threat(state, frame_w, frame_h)
+        tactic, tactic_dir = self._tactic_sel.select(state, threat, frame_w, frame_h)
+        effective_dir = self._resolve_direction(state, tactic_dir)
 
         if (state.poison or state.afk) and effective_dir:
-            noisy = noisy_direction(*effective_dir)
-            controller.move(*noisy)
+            controller.move(*noisy_direction(*effective_dir))
             self.wiggle_counter = 0
-            current_state = "FLEEING"
+            return "FLEEING"
 
-        elif state.in_bush and not state.poison and not state.afk:
+        if tactic.tactic_name() == "AVOID_ENEMY" and effective_dir and not state.in_bush:
+            controller.move(*noisy_direction(*effective_dir))
+            self.wiggle_counter = 0
+            return "ENGAGING"
+
+        if state.in_bush and not state.poison and not state.afk:
             self.wiggle_counter += 1
             if self.wiggle_counter >= WIGGLE_INTERVAL:
                 d = _WIGGLE_DIRS[self.wiggle_step % len(_WIGGLE_DIRS)]
@@ -100,19 +114,15 @@ class StateMachine:
                 self.wiggle_counter  = 0
             else:
                 controller.stop()
-            current_state = "HIDING"
+            return "HIDING"
 
-        elif effective_dir and state.dist_to_bush > BUSH_REACH_DIST:
-            noisy = noisy_direction(*effective_dir)
-            controller.move(*noisy)
-            current_state = "MOVING"
+        if effective_dir and state.dist_to_bush > BUSH_REACH_DIST:
+            controller.move(*noisy_direction(*effective_dir))
+            return "MOVING"
 
-        elif effective_dir:
+        if effective_dir:
             controller.stop()
-            current_state = "HIDING"
+            return "HIDING"
 
-        else:
-            controller.stop()
-            current_state = "WAITING"
-
-        return current_state
+        controller.stop()
+        return "WAITING"
