@@ -9,20 +9,34 @@ Tasti:
   n → vista normale con overlay
 """
 
+import os
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
 import cv2
-import numpy as np
-from capture import find_window, capture
-from detector import (
-    detect_bushes, detect_enemies, detect_poison,
-    detect_afk_warning, is_in_bush, _hsv,
-)
+
+from capture import capture, find_window
 from config import (
-    WINDOW_TITLE, PLAYER_CENTER_X, PLAYER_CENTER_Y,
-    BUSH_HSV_LOWER, BUSH_HSV_UPPER,
-    POISON_HSV_LOWER, POISON_HSV_UPPER,
-    ENEMY_HP_HSV_LOWER_A, ENEMY_HP_HSV_UPPER_A,
-    ENEMY_HP_HSV_LOWER_B, ENEMY_HP_HSV_UPPER_B,
+    BUSH_HSV_LOWER,
+    BUSH_HSV_UPPER,
+    ENEMY_HP_HSV_LOWER_A,
+    ENEMY_HP_HSV_LOWER_B,
+    ENEMY_HP_HSV_UPPER_A,
+    ENEMY_HP_HSV_UPPER_B,
+    PLAYER_CENTER_X,
+    PLAYER_CENTER_Y,
+    POISON_HSV_LOWER,
+    POISON_HSV_UPPER,
+    WINDOW_TITLE,
+)
+from detector import (
+    _hsv,
+    detect_afk_warning,
+    detect_bushes,
+    detect_enemies,
+    detect_poison,
+    is_in_bush,
 )
 
 

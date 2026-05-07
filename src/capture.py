@@ -1,7 +1,7 @@
-import win32gui
+import cv2
 import mss
 import numpy as np
-import cv2
+import win32gui
 
 
 def find_window(title: str) -> int | None:

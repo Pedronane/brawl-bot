@@ -1,13 +1,25 @@
 import cv2
 import numpy as np
+
 from config import (
-    BUSH_HSV_LOWER, BUSH_HSV_UPPER, BUSH_MIN_AREA, BUSH_REACH_DIST,
-    BUSH_MORPH_KERNEL, UI_EXCLUDE,
-    POISON_HSV_LOWER, POISON_HSV_UPPER, POISON_EDGE_FRACTION, POISON_PIXEL_RATIO,
-    ENEMY_HP_HSV_LOWER_A, ENEMY_HP_HSV_UPPER_A,
-    ENEMY_HP_HSV_LOWER_B, ENEMY_HP_HSV_UPPER_B,
-    AFK_HSV_LOWER, AFK_HSV_UPPER, AFK_ROI_PIXEL_SUM,
-    PLAYER_CENTER_X, PLAYER_CENTER_Y,
+    AFK_HSV_LOWER,
+    AFK_HSV_UPPER,
+    AFK_ROI_PIXEL_SUM,
+    BUSH_HSV_LOWER,
+    BUSH_HSV_UPPER,
+    BUSH_MIN_AREA,
+    BUSH_MORPH_KERNEL,
+    ENEMY_HP_HSV_LOWER_A,
+    ENEMY_HP_HSV_LOWER_B,
+    ENEMY_HP_HSV_UPPER_A,
+    ENEMY_HP_HSV_UPPER_B,
+    PLAYER_CENTER_X,
+    PLAYER_CENTER_Y,
+    POISON_EDGE_FRACTION,
+    POISON_HSV_LOWER,
+    POISON_HSV_UPPER,
+    POISON_PIXEL_RATIO,
+    UI_EXCLUDE,
 )
 
 _MORPH3 = np.ones((3, 3), np.uint8)
@@ -39,10 +51,11 @@ def _right_angle_ratio(cnt) -> float:
         a = pts[(i - 1) % n]
         b = pts[i]
         c = pts[(i + 1) % n]
-        ba = a - b; bc = c - b
+        ba = a - b
+        bc = c - b
         denom = np.linalg.norm(ba) * np.linalg.norm(bc) + 1e-6
         cos_a = np.dot(ba, bc) / denom
-        if abs(cos_a) < 0.4:   # angolo ~60-120° → conta come non-rettilineo
+        if abs(cos_a) < 0.4:
             right += 1
     return right / n
 
@@ -59,12 +72,11 @@ def _bush_contours(frame: np.ndarray):
         area = cv2.contourArea(c)
         if area < BUSH_MIN_AREA:
             continue
-        if _right_angle_ratio(c) > 0.45:   # piattaforma con angoli retti → escludi
+        if _right_angle_ratio(c) > 0.45:
             continue
         peri   = cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, 0.03 * peri, True)
         n_pts  = len(approx)
-        # forma grande con contorno semplicissimo = pavimento/piattaforma liscia
         if n_pts <= 4 and area > 12000:
             continue
         result.append(c)
@@ -120,7 +132,6 @@ def detect_enemies(frame: np.ndarray) -> list[tuple[int, int]]:
     enemies = []
     for cnt in contours:
         x, y, cw, ch = cv2.boundingRect(cnt)
-        # Barre HP: larghe, sottili, con aspect ratio > 3
         if cw > 18 and ch < 14 and cw > ch * 3:
             enemies.append((x + cw // 2, y + ch // 2))
     return enemies
@@ -133,17 +144,16 @@ def detect_poison(frame: np.ndarray) -> bool:
 
     m = int(min(h, w) * POISON_EDGE_FRACTION)
     strips = [
-        mask[:m, m:w - m],       # top (escludi angoli già contati)
-        mask[h - m:, m:w - m],   # bottom
-        mask[m:h - m, :m],       # left
-        mask[m:h - m, w - m:],   # right
+        mask[:m, m:w - m],
+        mask[h - m:, m:w - m],
+        mask[m:h - m, :m],
+        mask[m:h - m, w - m:],
     ]
     for strip in strips:
         total = strip.size
         if total == 0:
             continue
-        ratio = np.count_nonzero(strip) / total
-        if ratio > POISON_PIXEL_RATIO:
+        if np.count_nonzero(strip) / total > POISON_PIXEL_RATIO:
             return True
     return False
 
@@ -158,7 +168,7 @@ def detect_afk_warning(frame: np.ndarray) -> bool:
 def is_in_bush(frame: np.ndarray) -> bool:
     h, w = frame.shape[:2]
     px, py = int(w * PLAYER_CENTER_X), int(h * PLAYER_CENTER_Y)
-    inner_r, outer_r = 22, 65  # annello: salta sprite, campiona intorno
+    inner_r, outer_r = 22, 65
 
     y1, y2 = max(0, py - outer_r), min(h, py + outer_r)
     x1, x2 = max(0, px - outer_r), min(w, px + outer_r)

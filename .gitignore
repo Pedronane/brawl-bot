@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+logs/*.log
+data/
+*.png
+*.jpg
+!docs/*.png
+.env
+hsv_best.json
+strategy_weights.json
+metrics_baseline.json

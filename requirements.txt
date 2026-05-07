@@ -4,3 +4,5 @@ mss
 pywin32
 pyautogui
 pydirectinput
+loguru
+pytest

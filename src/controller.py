@@ -1,8 +1,14 @@
 import time
+
 import pyautogui
 import pydirectinput
-from config import CONTROL_MODE, JOYSTICK_X, JOYSTICK_Y, JOYSTICK_DRAG_RADIUS
+import win32gui
 
+from config import CONTROL_MODE, JOYSTICK_DRAG_RADIUS, JOYSTICK_X, JOYSTICK_Y
+from randomizer import keystroke_gap, maybe_human_pause
+
+# FAILSAFE disabilitato intenzionalmente: il bot muove il mouse liberamente.
+# Kill switch alternativo: crea il file "kill.flag" nella cwd per fermare il bot.
 pyautogui.PAUSE = 0
 pyautogui.FAILSAFE = False
 pydirectinput.PAUSE = 0
@@ -11,11 +17,38 @@ _KEYS = {"w", "a", "s", "d"}
 _active_keys: set[str] = set()
 _joystick_down = False
 _win_rect: tuple[int, int, int, int] | None = None
+_hwnd: int | None = None
 
 
-def set_window_rect(rect: tuple[int, int, int, int]) -> None:
-    global _win_rect
+def set_window_rect(rect: tuple[int, int, int, int], hwnd: int | None = None) -> None:
+    global _win_rect, _hwnd
     _win_rect = rect
+    if hwnd is not None:
+        _hwnd = hwnd
+
+
+def is_window_focused() -> bool:
+    """Ritorna True se BlueStacks ha il focus. Se hwnd non noto, assume True."""
+    if _hwnd is None:
+        return True
+    return win32gui.GetForegroundWindow() == _hwnd
+
+
+def reset_all_inputs() -> None:
+    """Rilascia tutti i tasti e il mouse — chiamare sempre su crash/exit."""
+    global _active_keys, _joystick_down
+    for k in list(_active_keys):
+        try:
+            pydirectinput.keyUp(k)
+        except Exception:
+            pass
+    _active_keys.clear()
+    if _joystick_down:
+        try:
+            pyautogui.mouseUp(button="left")
+        except Exception:
+            pass
+        _joystick_down = False
 
 
 # ── Keyboard mode ──────────────────────────────────────────────────────────────
@@ -24,8 +57,10 @@ def _sync_keys(target: set[str]) -> None:
     global _active_keys
     for k in _active_keys - target:
         pydirectinput.keyUp(k)
+        time.sleep(keystroke_gap())
     for k in target - _active_keys:
         pydirectinput.keyDown(k)
+        time.sleep(keystroke_gap())
     _active_keys = target.copy()
 
 
@@ -72,6 +107,10 @@ def _mouse_stop() -> None:
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 def move(dx: float, dy: float) -> None:
+    if not is_window_focused():
+        stop()
+        return
+    maybe_human_pause()
     if CONTROL_MODE == "keyboard":
         _sync_keys(_dir_to_keys(dx, dy))
     else:

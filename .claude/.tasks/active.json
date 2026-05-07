@@ -1,0 +1,24 @@
+{
+  "davide": {
+    "status": "idle",
+    "branch": "feature/test-session",
+    "files_owned": [
+      "src/tactics.py",
+      "src/behavior_engine.py"
+    ],
+    "files_shared": [],
+    "start_time": "2026-05-07T14:14:37.278Z",
+    "last_update": "2026-05-07T14:14:40.274Z",
+    "pr_url": null
+  },
+  "pedro": {
+    "status": "idle",
+    "branch": null,
+    "files_owned": [],
+    "files_shared": [],
+    "start_time": null,
+    "last_update": null,
+    "pr_url": null
+  },
+  "_stale_after_hours": 2
+}

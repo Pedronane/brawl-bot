@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  test:
+    runs-on: windows-latest   # Windows: pywin32 funziona, no BlueStacks
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: |
+          pip install ruff
+          ruff check src/ tests/ main.py debug.py
+
+      - name: Test (solo test puri, no BlueStacks)
+        run: pytest tests/ -v -m "not hardware"
