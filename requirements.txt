@@ -1,8 +1,15 @@
-opencv-python
-numpy
-mss
-pywin32
-pyautogui
-pydirectinput
-loguru
-pytest
+# Runtime — versioni pinnate per build riproducibili
+# Aggiornare con: pip freeze > requirements.txt dopo uv sync
+opencv-python>=4.8.0,<5
+numpy>=1.24,<3
+mss>=7.0,<10
+pywin32>=306
+pyautogui>=0.9.54
+pydirectinput>=1.0.4
+loguru>=0.7,<1
+psutil>=5.9,<7
+
+# Dev / test (non installare in produzione)
+pytest>=8.0
+pytest-cov>=5.0
+ruff>=0.7

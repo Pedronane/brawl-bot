@@ -1,0 +1,45 @@
+{
+  "_comment": "Profili HSV per diverse configurazioni BlueStacks. Usa debug.py per calibrare.",
+  "_format": "Ogni range è [H_lo, S_lo, V_lo, H_hi, S_hi, V_hi]",
+
+  "default": {
+    "BUSH_HSV_LOWER": [87, 90, 25],
+    "BUSH_HSV_UPPER": [122, 255, 165],
+    "POISON_HSV_LOWER": [145, 100, 60],
+    "POISON_HSV_UPPER": [175, 255, 210],
+    "ENEMY_HP_HSV_LOWER_A": [0, 160, 120],
+    "ENEMY_HP_HSV_UPPER_A": [8, 255, 255],
+    "ENEMY_HP_HSV_LOWER_B": [172, 160, 120],
+    "ENEMY_HP_HSV_UPPER_B": [180, 255, 255],
+    "AFK_HSV_LOWER": [18, 140, 140],
+    "AFK_HSV_UPPER": [35, 255, 255]
+  },
+
+  "bluestacks_opengl": {
+    "_note": "Calibrare con debug.py su OpenGL mode — tendenza a shift S/V +10",
+    "BUSH_HSV_LOWER": [85, 80, 20],
+    "BUSH_HSV_UPPER": [125, 255, 175],
+    "POISON_HSV_LOWER": [140, 95, 55],
+    "POISON_HSV_UPPER": [178, 255, 215],
+    "ENEMY_HP_HSV_LOWER_A": [0, 150, 110],
+    "ENEMY_HP_HSV_UPPER_A": [10, 255, 255],
+    "ENEMY_HP_HSV_LOWER_B": [170, 150, 110],
+    "ENEMY_HP_HSV_UPPER_B": [180, 255, 255],
+    "AFK_HSV_LOWER": [16, 130, 130],
+    "AFK_HSV_UPPER": [38, 255, 255]
+  },
+
+  "bluestacks_dx11": {
+    "_note": "Calibrare con debug.py su DirectX 11 — colori più saturi",
+    "BUSH_HSV_LOWER": [88, 95, 30],
+    "BUSH_HSV_UPPER": [120, 255, 160],
+    "POISON_HSV_LOWER": [148, 105, 65],
+    "POISON_HSV_UPPER": [173, 255, 205],
+    "ENEMY_HP_HSV_LOWER_A": [0, 165, 125],
+    "ENEMY_HP_HSV_UPPER_A": [7, 255, 255],
+    "ENEMY_HP_HSV_LOWER_B": [173, 165, 125],
+    "ENEMY_HP_HSV_UPPER_B": [180, 255, 255],
+    "AFK_HSV_LOWER": [19, 145, 145],
+    "AFK_HSV_UPPER": [33, 255, 255]
+  }
+}

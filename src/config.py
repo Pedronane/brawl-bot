@@ -1,6 +1,52 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
 import numpy as np
 
 WINDOW_TITLE = "BlueStacks"
+
+# Profilo HSV attivo — sovrascrivibile via load_hsv_profile()
+HSV_PROFILE_NAME: str = "default"
+
+
+def load_hsv_profile(profile_name: str = "default") -> None:
+    """Carica profilo HSV da config/hsv_profiles.json e sovrascrive i valori globali.
+
+    Chiamare PRIMA di avviare il bot se si usa un profilo non-default.
+    Esempio: load_hsv_profile("bluestacks_opengl")
+    """
+    global HSV_PROFILE_NAME
+    global BUSH_HSV_LOWER, BUSH_HSV_UPPER
+    global POISON_HSV_LOWER, POISON_HSV_UPPER
+    global ENEMY_HP_HSV_LOWER_A, ENEMY_HP_HSV_UPPER_A
+    global ENEMY_HP_HSV_LOWER_B, ENEMY_HP_HSV_UPPER_B
+    global AFK_HSV_LOWER, AFK_HSV_UPPER
+
+    profiles_path = Path(__file__).parent.parent / "config" / "hsv_profiles.json"
+    if not profiles_path.exists():
+        return   # mantieni valori default hard-coded
+
+    with profiles_path.open() as f:
+        profiles = json.load(f)
+
+    profile = profiles.get(profile_name) or profiles.get("default", {})
+    HSV_PROFILE_NAME = profile_name
+
+    def _arr(key: str, fallback) -> np.ndarray:
+        return np.array(profile[key], dtype=np.uint8) if key in profile else fallback
+
+    BUSH_HSV_LOWER = _arr("BUSH_HSV_LOWER", BUSH_HSV_LOWER)
+    BUSH_HSV_UPPER = _arr("BUSH_HSV_UPPER", BUSH_HSV_UPPER)
+    POISON_HSV_LOWER = _arr("POISON_HSV_LOWER", POISON_HSV_LOWER)
+    POISON_HSV_UPPER = _arr("POISON_HSV_UPPER", POISON_HSV_UPPER)
+    ENEMY_HP_HSV_LOWER_A = _arr("ENEMY_HP_HSV_LOWER_A", ENEMY_HP_HSV_LOWER_A)
+    ENEMY_HP_HSV_UPPER_A = _arr("ENEMY_HP_HSV_UPPER_A", ENEMY_HP_HSV_UPPER_A)
+    ENEMY_HP_HSV_LOWER_B = _arr("ENEMY_HP_HSV_LOWER_B", ENEMY_HP_HSV_LOWER_B)
+    ENEMY_HP_HSV_UPPER_B = _arr("ENEMY_HP_HSV_UPPER_B", ENEMY_HP_HSV_UPPER_B)
+    AFK_HSV_LOWER = _arr("AFK_HSV_LOWER", AFK_HSV_LOWER)
+    AFK_HSV_UPPER = _arr("AFK_HSV_UPPER", AFK_HSV_UPPER)
 
 # ── Controllo ──────────────────────────────────────────────────────────────────
 # "keyboard" → WASD (configurare BlueStacks Game Controls → MOBA mode)

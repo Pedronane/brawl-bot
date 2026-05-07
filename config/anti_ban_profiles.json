@@ -1,0 +1,50 @@
+{
+  "_comment": "Profili comportamentali SessionRandomizer. Scegli in main.py: SessionRandomizer.from_profile('casual')",
+
+  "default": {
+    "day_off_prob": 0.15,
+    "duration_mean_min": 45.0,
+    "duration_std_min": 20.0,
+    "duration_max_min": 150.0,
+    "break_interval_min": 45.0,
+    "break_duration_min": 5.0,
+    "inter_match_delay_min": 0.05,
+    "inter_match_delay_max": 0.50
+  },
+
+  "casual": {
+    "_note": "Giocatore casual: sessioni brevi, molta varianza, spesso pomeriggio",
+    "day_off_prob": 0.25,
+    "duration_mean_min": 30.0,
+    "duration_std_min": 15.0,
+    "duration_max_min": 90.0,
+    "break_interval_min": 30.0,
+    "break_duration_min": 10.0,
+    "inter_match_delay_min": 0.10,
+    "inter_match_delay_max": 1.00
+  },
+
+  "tryhard": {
+    "_note": "Giocatore impegnato: sessioni lunghe, poca varianza, sera-notte",
+    "day_off_prob": 0.08,
+    "duration_mean_min": 75.0,
+    "duration_std_min": 25.0,
+    "duration_max_min": 150.0,
+    "break_interval_min": 60.0,
+    "break_duration_min": 3.0,
+    "inter_match_delay_min": 0.02,
+    "inter_match_delay_max": 0.20
+  },
+
+  "stealth": {
+    "_note": "Massima evasione: alta varianza su tutto, molti giorni off",
+    "day_off_prob": 0.30,
+    "duration_mean_min": 25.0,
+    "duration_std_min": 20.0,
+    "duration_max_min": 60.0,
+    "break_interval_min": 20.0,
+    "break_duration_min": 15.0,
+    "inter_match_delay_min": 0.30,
+    "inter_match_delay_max": 2.00
+  }
+}

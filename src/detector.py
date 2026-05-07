@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import time
+
 import cv2
 import numpy as np
 
@@ -21,9 +25,50 @@ from config import (
     POISON_PIXEL_RATIO,
     UI_EXCLUDE,
 )
+from game_state import Enemy
+from utils.image_proc import TemporalFilter
 
 _MORPH3 = np.ones((3, 3), np.uint8)
 _MORPH5 = np.ones((5, 5), np.uint8)
+
+# TemporalFilter condiviso per enemies — istanza modulo (un solo thread detect).
+_enemy_filter = TemporalFilter(window=3, radius=40, threshold=2)
+
+# Tempo inizio partita per stima game_phase da timer
+_match_start_ts: float = time.monotonic()
+
+
+def detect_all(frame: np.ndarray, frame_idx: int = 0):
+    """Entry-point unico per DetectThread: esegui tutte le detection → FrameState.
+
+    Importa FrameState lazy per evitare import circolari.
+    """
+    from game_state import FrameState
+
+    direction, dist = nearest_bush_direction(frame)
+    enemies = detect_enemies(frame)
+    poison = detect_poison(frame)
+    afk = detect_afk_warning(frame)
+    in_bush = is_in_bush(frame)
+    phase = detect_game_phase(players_left=0, poison_progress=0.0)
+
+    return FrameState(
+        poison=poison,
+        afk=afk,
+        in_bush=in_bush,
+        nearest_bush_dir=direction,
+        dist_to_bush=dist,
+        frame_idx=frame_idx,
+        enemies=tuple(enemies),
+        game_phase=phase,
+    )
+
+
+def reset_match_timer() -> None:
+    """Chiama all'inizio di ogni partita per azzerare il timer di game_phase."""
+    global _match_start_ts
+    _match_start_ts = time.monotonic()
+    _enemy_filter.reset()
 
 
 def _mask_ui(mask: np.ndarray) -> np.ndarray:
@@ -60,10 +105,12 @@ def _right_angle_ratio(cnt) -> float:
     return right / n
 
 
+# ── Bush detection ─────────────────────────────────────────────────────────────
+
 def _bush_contours(frame: np.ndarray):
     k = np.ones((BUSH_MORPH_KERNEL, BUSH_MORPH_KERNEL), np.uint8)
     mask = cv2.inRange(_hsv(frame), BUSH_HSV_LOWER, BUSH_HSV_UPPER)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, k)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, _MORPH3)
     mask = _mask_ui(mask)
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -74,10 +121,9 @@ def _bush_contours(frame: np.ndarray):
             continue
         if _right_angle_ratio(c) > 0.45:
             continue
-        peri   = cv2.arcLength(c, True)
+        peri = cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, 0.03 * peri, True)
-        n_pts  = len(approx)
-        if n_pts <= 4 and area > 12000:
+        if len(approx) <= 4 and area > 12000:
             continue
         result.append(c)
     return result
@@ -123,19 +169,36 @@ def nearest_bush_direction(frame: np.ndarray) -> tuple[tuple[float, float] | Non
     return (best_dx / best_dist, best_dy / best_dist), best_dist
 
 
-def detect_enemies(frame: np.ndarray) -> list[tuple[int, int]]:
+# ── Enemy detection (HP-bar anchor + TemporalFilter) ──────────────────────────
+
+def detect_enemies(frame: np.ndarray) -> list[Enemy]:
+    """Rileva nemici via HP-bar rossa. Output filtrato da TemporalFilter N=3."""
     hsv = _hsv(frame)
     mask = cv2.inRange(hsv, ENEMY_HP_HSV_LOWER_A, ENEMY_HP_HSV_UPPER_A)
     mask |= cv2.inRange(hsv, ENEMY_HP_HSV_LOWER_B, ENEMY_HP_HSV_UPPER_B)
 
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,
+                            cv2.getStructuringElement(cv2.MORPH_RECT, (5, 3)))
+
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    enemies = []
+    raw: list[Enemy] = []
     for cnt in contours:
         x, y, cw, ch = cv2.boundingRect(cnt)
-        if cw > 18 and ch < 14 and cw > ch * 3:
-            enemies.append((x + cw // 2, y + ch // 2))
-    return enemies
+        # HP-bar: rettangolo orizzontale, aspect ratio cw/ch > 3
+        if cw < 18 or ch >= 14 or cw <= ch * 3:
+            continue
+        # HP ratio stima: larghezza barra rossa / larghezza totale attesa
+        hp_r = min(1.0, cw / 60.0)
+        # Posizione nemico: centro barra + offset verso il basso
+        ex = x + cw // 2
+        ey = y + ch + 45          # sprite nemico ~45px sotto la barra
+        raw.append(Enemy(ex, ey, hp_ratio=hp_r, confidence=0.8))
 
+    confirmed = _enemy_filter.update(raw)
+    return [Enemy(*c) if not isinstance(c, Enemy) else c for c in confirmed]
+
+
+# ── Poison / AFK ──────────────────────────────────────────────────────────────
 
 def detect_poison(frame: np.ndarray) -> bool:
     h, w = frame.shape[:2]
@@ -183,7 +246,45 @@ def is_in_bush(frame: np.ndarray) -> bool:
 
     bush_mask = cv2.inRange(_hsv(roi), BUSH_HSV_LOWER, BUSH_HSV_UPPER)
     annulus_px = int(annulus.sum())
-    bush_px    = int(np.count_nonzero(bush_mask[annulus]))
+    bush_px = int(np.count_nonzero(bush_mask[annulus]))
     if annulus_px == 0:
         return False
     return (bush_px / annulus_px) > 0.28
+
+
+# ── Game phase detection ───────────────────────────────────────────────────────
+
+def detect_game_phase(
+    players_left: int = 0,
+    poison_progress: float = 0.0,
+    elapsed_sec: float | None = None,
+) -> str:
+    """Stima game phase da players_left, poison_progress o tempo trascorso.
+
+    Priorità: players_left > poison_progress > timer.
+    Fallback a timer se entrambi non disponibili (players_left == 0).
+    """
+    t = elapsed_sec if elapsed_sec is not None else (time.monotonic() - _match_start_ts)
+
+    # Via players_left (più accurato quando disponibile)
+    if players_left > 0:
+        if players_left >= 7:
+            return "EARLY"
+        if 3 <= players_left < 7:
+            return "MID"
+        return "LATE"
+
+    # Via poison_progress
+    if poison_progress > 0.0:
+        if poison_progress < 0.35:
+            return "EARLY"
+        if poison_progress < 0.70:
+            return "MID"
+        return "LATE"
+
+    # Fallback timer (deterministico, bassa accuratezza)
+    if t < 50:
+        return "EARLY"
+    if t < 100:
+        return "MID"
+    return "LATE"
